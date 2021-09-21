@@ -1,0 +1,185 @@
+# ESP32 in garage that controls 8 relay board and has DHT-11 sensor -  IP Address: 192.168.0.90
+esphome:
+  name: sprinklers_esp32
+  platform: ESP32
+  board: esp-wrover-kit
+
+wifi:
+  ssid: !secret ssid
+  password: !secret password
+  
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+# Sync time with Home Assistant.
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    on_time:
+    # Winter Schedule
+      - seconds: 0
+        minutes: 0
+        hours: 6
+        days_of_week: THU
+        months: JAN,FEB,NOV,DEC
+        then:
+          - script.execute: sprinklercycle
+          - delay: 3600s
+          - script.execute: sprinklercycle
+    # Spring/Fall Schedule
+      - seconds: 0
+        minutes: 0
+        hours: 6
+        days_of_week: TUE,THU,SAT
+        months: MAR,APR,SEP,OCT
+        then:
+          - script.execute: sprinklercycle
+          - delay: 3600s
+          - script.execute: sprinklercycle
+    # Summer Schedule
+      - seconds: 0
+        minutes: 0
+        hours: 6
+        days_of_week: MON,TUE,WED,THU,FRI,SAT
+        months: JUN,JUL
+        then:
+          - script.execute: sprinklercycle
+          - delay: 3600s
+          - script.execute: sprinklercycle
+          
+    # Early/Late Summer Schedule
+      - seconds: 0
+        minutes: 0
+        hours: 6
+        days_of_week: MON,TUE,WED,FRI,SAT
+        months: MAY,AUG
+        then:
+          - script.execute: sprinklercycle
+          - delay: 3600s
+          - script.execute: sprinklercycle        
+
+# Wi-Fi Signal Strength & Uptime
+sensor:
+  - platform: wifi_signal
+    name: "SprinklerESP32 WiFi signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "SprinklerESP32 uptime"
+    unit_of_measurement: "min."
+    filters:
+        multiply: 0.0166666667
+
+# DHT11 Temperature/Humidity Sensor 3.3V        
+  - platform: dht
+    pin: GPIO15
+    model: DHT11
+    temperature:
+      name: "Sprinkler Temperature"
+    humidity:
+      name: "Sprinkler Humidity"
+    update_interval: 15s
+
+text_sensor:
+  - platform: version
+    name: "SprinklerESP32 ESPHome version"
+
+#Motion Sensor    5V
+binary_sensor:
+  - platform: gpio
+    pin: GPIO14
+    name: "Sprinkler Motion"
+    device_class: motion
+    
+  - platform: gpio
+    pin:
+      number: 27
+      mode: INPUT_PULLUP
+    name: "Garage Door Sensor"
+    device_class: door
+
+# Setup Relay Board  5V  
+switch:
+  - platform: gpio
+    pin: GPIO16
+    name: "Zone #1"
+    id: zone1
+    inverted: true
+    interlock: [zone2,zone3,zone4,zone5,zone6]
+    interlock_wait_time: 2s
+    
+  - platform: gpio
+    pin: GPIO17
+    name: "Zone #2"
+    id: zone2
+    inverted: true
+    interlock: [zone1,zone3,zone4,zone5,zone6]
+    interlock_wait_time: 2s
+    
+  - platform: gpio
+    pin: GPIO4
+    name: "Zone #3"
+    id: zone3
+    inverted: true
+    interlock: [zone1,zone2,zone4,zone5,zone6]
+    interlock_wait_time: 2s
+    
+  - platform: gpio
+    pin: GPIO18
+    name: "Zone #4"
+    id: zone4
+    inverted: true
+    interlock: [zone1,zone2,zone3,zone5,zone6]
+    interlock_wait_time: 2s
+    
+  - platform: gpio
+    pin: GPIO19
+    name: "Zone #5"
+    id: zone5
+    inverted: true
+    interlock: [zone1,zone2,zone3,zone4,zone6]
+    interlock_wait_time: 2s
+    
+  - platform: gpio
+    pin: GPIO21
+    name: "Zone #6"
+    id: zone6
+    inverted: true
+    interlock: [zone1,zone2,zone3,zone4,zone5]
+    interlock_wait_time: 2s
+  
+  # Turn off power to relays when raining  
+  - platform: gpio
+    pin: GPIO13
+    name: "Rain_Off"
+    id: rain_off
+    inverted: true
+    
+    
+# Script to run sprinklers
+script:
+  - id: sprinklercycle
+    then:
+      - switch.turn_on: zone1
+      - delay: 360s
+      - switch.turn_on: zone2
+      - delay: 240s
+      - switch.turn_on: zone3
+      - delay: 240s
+      - switch.turn_on: zone4
+      - delay: 240s
+      - switch.turn_on: zone5
+      - delay: 240s
+      - switch.turn_on: zone6
+      - delay: 300s
+      - switch.turn_off: zone6
+      
+      
+        
